@@ -131,7 +131,7 @@ class Layer(ResourceInfo):
 
     attribution_object = xml_property("attribution", _read_attribution)
     enabled = xml_property("enabled", lambda x: x.text == "true")
-    advertised = xml_property("advertised")
+    advertised = xml_property("advertised", lambda x: x.text == "true", default=True)
     
     def _get_attr_text(self):
         return self.attribution_object.title

@@ -46,7 +46,7 @@ class DataStore(ResourceInfo):
             return featuretype_from_index(self.catalog, self.workspace, self, node)
 
         #if name passed, return only one FeatureType, otherwise return all FeatureTypes in store:
-        if name:
+        if name is not None:
             for node in xml.findall("featureType"):
                 if node.findtext("name") == name:
                     return ft_from_node(node)
@@ -109,7 +109,7 @@ class CoverageStore(ResourceInfo):
             return coverage_from_index(self.catalog, self.workspace, self, node)
 
         #if name passed, return only one Coverage, otherwise return all Coverages in store:
-        if name:
+        if name is not None:
             for node in xml.findall("coverage"):
                 if node.findtext("name") == name:
                     return cov_from_node(node)

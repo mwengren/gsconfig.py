@@ -312,13 +312,13 @@ If you know a LayerGroup's name you can also retrieve it directly::
 
     from geoserver.catalog import Catalog
     cat = Catalog("http://localhost:8080/geoserver/rest")
-    that_group = cat.get_layergroups("basemap")
+    that_group = cat.get_layergroup("basemap")
 
 Once you have a LayerGroup, you can manipulate its properties to find out what Layers and Styles it uses::
 
     from geoserver.catalog import Catalog
     cat = Catalog("http://localhost:8080/geoserver/rest")
-    that_group = cat.get_layergroups("basemap")
+    that_group = cat.get_layergroup("basemap")
     assert len(that_group.styles) == len(that_group.layers)
 
 When working with LayerGroups it is important to ensure that the ``layers`` list and ``styles`` list have the same length before saving any changes.

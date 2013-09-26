@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import logging
 from geoserver.layer import Layer
+from geoserver.resource import FeatureType, Coverage
 from geoserver.store import coveragestore_from_index, datastore_from_index, \
     UnsavedDataStore, UnsavedCoverageStore
 from geoserver.style import Style, Workspace_Style
@@ -171,39 +172,46 @@ class Catalog(object):
         return response
 
     def get_store(self, name, workspace=None):
-        #stores = [s for s in self.get_stores(workspace) if s.name == name]
+
+        # Make sure workspace is a workspace object and not a string.
+        # If the workspace does not exist, continue as if no workspace had been defined.
+        if isinstance(workspace, basestring):
+            workspace = self.get_workspace(workspace)
+
+        # Create a list with potential workspaces to look into
+        # if a workspace is defined, it will contain only that workspace
+        # if no workspace is defined, the list will contain all workspaces.
+        workspaces = []
+
         if workspace is None:
-            store = None
-            for ws in self.get_workspaces():
-                found = None
-                try:
-                    found = self.get_store(name, ws)
-                except:
-                    # don't expect every workspace to contain the named store
-                    pass
-                if found:
-                    if store:
-                        raise AmbiguousRequestError("Multiple stores found named: " + name)
-                    else:
-                        store = found
-            if not store:
-                raise FailedRequestError("No store found named: " + name)
-            return store
-        else: # workspace is not None
-            if isinstance(workspace, basestring):
-                workspace = self.get_workspace(workspace)
-                if workspace is None:
-                    return None
-            logger.debug("datastore url is [%s]", workspace.datastore_url )
-            #first try matching name param to datastore, if no match then coveragestore:
-            ds_list = self.get_xml(workspace.datastore_url)
-            for store in ds_list.findall("dataStore"):
-                if store.findtext("name") == name: return datastore_from_index(self, workspace, store)
-            cs_list = self.get_xml(workspace.coveragestore_url)
-            for store in ds_list.findall("coverageStore"):
-                if store.findtext("name") == name: return coveragestore_from_index(self, workspace, store)
-            raise FailedRequestError("No store found in " + str(workspace) + " named: " + name)
-            
+            workspaces.extend(self.get_workspaces())
+        else:
+            workspaces.append(workspace)
+
+        # Iterate over all workspaces to find the stores or store
+        found_stores = {}
+        for ws in workspaces:
+            # Get all the store objects from geoserver
+            raw_stores = self.get_stores(workspace=ws)
+            # And put it in a dictionary where the keys are the name of the store,
+            new_stores = dict(zip([s.name for s in raw_stores], raw_stores))
+            # If the store is found, put it in a dict that also takes into account the
+            # worspace.
+            if name in new_stores:
+                found_stores[ws.name + ':' + name] = new_stores[name]
+
+        # There are 3 cases:
+        #    a) No stores are found.
+        #    b) Only one store is found.
+        #    c) More than one is found.
+        if len(found_stores) == 0:
+            raise FailedRequestError("No store found named: " + name)
+        elif len(found_stores) > 1:
+            raise AmbiguousRequestError("Multiple stores found named '" + name + "': "+ found_stores.keys())
+        else:
+            return found_stores.values()[0]
+
+
     def get_stores(self, workspace=None):
         if workspace is not None:
             if isinstance(workspace, basestring):
@@ -388,6 +396,18 @@ class Catalog(object):
             if resource is not None:
                 return resource
         return None
+
+    def get_resource_by_url(self, url):
+        xml = self.get_xml(url)
+        name = xml.find("name").text
+        resource = None
+        if xml.tag == 'featureType':
+            resource = FeatureType
+        elif xml.tag == 'coverage':
+            resource = Coverage
+        else:
+            raise Exception('drat')
+        return resource(self, None, None, name, href=url)
 
     def get_resources(self, store=None, workspace=None):
         if isinstance(workspace, basestring):

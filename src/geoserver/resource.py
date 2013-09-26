@@ -44,32 +44,58 @@ def coverage_from_index(catalog, workspace, store, node):
     name = node.find("name")
     return Coverage(catalog, workspace, store, name.text)
 
-class FeatureType(ResourceInfo):
-    resource_type = "featureType"
-    save_method = "PUT"
+class _ResourceBase(ResourceInfo):
+    save_method = 'PUT'
 
-    def __init__(self, catalog, workspace, store, name):
-        super(FeatureType, self).__init__()
+    def __init__(self, catalog, workspace, store, name, href=None):
+        super(_ResourceBase, self).__init__()
 
-        assert isinstance(store, ResourceInfo)
-        assert isinstance(name, basestring)
+        if not href:
+            assert isinstance(store, ResourceInfo)
+            assert isinstance(name, basestring)
+            assert workspace is not None
+        else:
+            parts = href.split('/')
+            self._workspace_name = parts[parts.index('workspaces') + 1]
+            self._store_name = parts[parts.index(self.url_part_stores) + 1]
+            name = parts[-1].replace('.xml','')
 
+        self._href = href
         self.catalog = catalog
-        self.workspace = workspace
-        self.store = store
+        self._workspace = workspace
+        self._store = store
         self.name = name
 
     @property
+    def workspace(self):
+        if not self._workspace:
+            self._workspace = self.catalog.get_workspace(self._workspace_name)
+        return self._workspace
+
+    @property
+    def store(self):
+        if not self._store:
+            self._store = self.catalog.get_store(self._store_name, self._workspace_name)
+        return self._store
+
+    @property
     def href(self):
-        return url(self.catalog.service_url,
+        return self._href or url(self.catalog.service_url,
             ["workspaces", self.workspace.name,
-             "datastores", self.store.name,
-             "featuretypes", self.name + ".xml"])
+             self.url_part_stores, self.store.name,
+             self.url_part_types, self.name + ".xml"])
+
+
+class FeatureType(_ResourceBase):
+
+    resource_type = "featureType"
+    url_part_stores = 'datastores'
+    url_part_types = 'featuretypes'
 
     title = xml_property("title")
     abstract = xml_property("abstract")
     enabled = xml_property("enabled")
-    advertised = xml_property("advertised")
+    advertised = xml_property("advertised", default=True)
     native_bbox = xml_property("nativeBoundingBox", bbox)
     latlon_bbox = xml_property("latLonBoundingBox", bbox)
     projection = xml_property("srs")
@@ -134,23 +160,11 @@ def coverage_dimension_xml(builder, dimension):
 
     builder.end("coverageDimension")
 
-class Coverage(ResourceInfo):
-    def __init__(self, catalog, workspace, store, name):
-        super(Coverage, self).__init__()
-        self.catalog = catalog
-        self.workspace = workspace
-        self.store = store
-        self.name = name
-
-    @property
-    def href(self):
-        return url(self.catalog.service_url,
-            ["workspaces", self.workspace.name,
-             "coveragestores", self.store.name,
-             "coverages", self.name + ".xml"])
+class Coverage(_ResourceBase):
 
     resource_type = "coverage"
-    save_method = "PUT"
+    url_part_stores = 'coveragestores'
+    url_part_types = 'coverages'
 
     title = xml_property("title")
     abstract = xml_property("abstract")

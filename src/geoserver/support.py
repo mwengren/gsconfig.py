@@ -48,7 +48,7 @@ def url(base, seg, query=None):
     adjusted_base = base.rstrip('/') + '/'
     return urlparse.urljoin(adjusted_base, path)
 
-def xml_property(path, converter = lambda x: x.text):
+def xml_property(path, converter = lambda x: x.text, default=None):
     def getter(self):
         if path in self.dirty:
             return self.dirty[path]
@@ -56,7 +56,7 @@ def xml_property(path, converter = lambda x: x.text):
             if self.dom is None:
                 self.fetch()
             node = self.dom.find(path)
-            return converter(self.dom.find(path)) if node is not None else None
+            return converter(self.dom.find(path)) if node is not None else default
 
     def setter(self, value):
         self.dirty[path] = value
@@ -156,6 +156,9 @@ class ResourceInfo(object):
         # so force it into the dirty dict before writing
         if hasattr(self, "enabled"):
             self.dirty['enabled'] = self.enabled
+
+        if hasattr(self, "advertised"):
+            self.dirty['advertised'] = self.advertised
 
         for k, writer in self.writers.items():
             if k in self.dirty:
