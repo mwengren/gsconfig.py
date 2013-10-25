@@ -1,3 +1,4 @@
+import re
 import unittest
 from geoserver.catalog import Catalog, ConflictingDataError, UploadError, \
     FailedRequestError
@@ -8,6 +9,20 @@ from geoserver.util import shapefile_and_friends
 class CatalogTests(unittest.TestCase):
     def setUp(self):
         self.cat = Catalog("http://localhost:8080/geoserver/rest")
+
+    def testAbout(self):
+        about_html = self.cat.about()
+        self.assertTrue('<html xmlns="http://www.w3.org/1999/xhtml"' in about_html)
+
+    def testGSVersion(self):
+        version = self.cat.gsversion()
+        pat = re.compile('\d\.\d(\.[\dx]|-SNAPSHOT)')
+        self.assertTrue(pat.match('2.2.x'))
+        self.assertTrue(pat.match('2.3.2'))
+        self.assertTrue(pat.match('2.3-SNAPSHOT'))
+        self.assertFalse(pat.match('2.3.y'))
+        self.assertFalse(pat.match('233'))
+        self.assertTrue(pat.match(version))
 
     def testWorkspaces(self):
         self.assertEqual(7, len(self.cat.get_workspaces()))

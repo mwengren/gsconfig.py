@@ -9,8 +9,12 @@ def _maybe_text(n):
 
 def _layer_list(node):
     if node is not None:
-        return [_maybe_text(n.find("name")) for n in node.findall("layer")]
-
+        return [_maybe_text(n.find("name")) for n in node.findall("layer")]        
+        
+def _publishable_list(node):
+    if node is not None:
+        return [_maybe_text(n.find("name")) for n in node.findall("published")]
+    
 def _style_list(node):
     if node is not None:
         return [_maybe_text(n.find("name")) for n in node.findall("style")]
@@ -58,8 +62,28 @@ class LayerGroup(ResourceInfo):
         return url(self.catalog.service_url, ["layergroups", self.name + ".xml"])
 
     styles = xml_property("styles", _style_list)
-    layers = xml_property("layers", _layer_list)
-    bounds = xml_property("bounds", bbox)
+    bounds = xml_property("bounds", bbox)    
+        
+    def _layers_getter(self):
+        if self.catalog.gsversion() == "2.2.x":
+            path, converter = "layers", _layer_list
+        else:
+            path, converter = "publishables", _publishable_list
+        if path in self.dirty:
+            return self.dirty[path]
+        else:
+            if self.dom is None:
+                self.fetch()
+            node = self.dom.find(path)
+            return converter(self.dom.find(path)) if node is not None else None
+
+    def _layers_setter(self, value):
+        self.dirty["layers"] = value
+
+    def _layers_delete(self):
+        self.dirty["layers"] = None
+    
+    layers =  property(_layers_getter, _layers_setter, _layers_delete)
 
     writers = dict(
               name = write_string("name"),
@@ -77,6 +101,7 @@ class UnsavedLayerGroup(LayerGroup):
     save_method = "POST"
     def __init__(self, catalog, name, layers, styles, bounds):
         super(UnsavedLayerGroup, self).__init__(catalog, name)
+        bounds = bounds if bounds is not None else ("-180","180","-90","90","EPSG:4326")
         self.dirty.update(name = name, layers = layers, styles = styles, bounds = bounds)
 
     @property

@@ -81,6 +81,46 @@ class Catalog(object):
                         self.http
                         ))
         self._cache = dict()
+        self._version = None
+
+    def about(self):
+        '''return the about information as a formatted html'''
+        about_url = self.service_url + "/about/version.html"
+        response, content = self.http.request(about_url, "GET")
+        if response.status == 200:
+            return content
+        raise FailedRequestError('Unable to determine version: %s' %
+                                 (content or response.status))
+
+    def gsversion(self):
+        '''obtain the version or just 2.2.x if < 2.3.x
+        Raises:
+            FailedRequestError: If the request fails.
+        '''
+        if self._version: return self._version
+        about_url = self.service_url + "/about/version.xml"
+        response, content = self.http.request(about_url, "GET")
+        version = None
+        if response.status == 200:
+            dom = XML(content)
+            resources = dom.findall("resource")
+            for resource in resources:
+                if resource.attrib["name"] == "GeoServer":
+                    try:
+                        version = resource.find("Version").text
+                        break
+                    except:
+                        pass
+
+        #This will raise an exception if the catalog is not available
+        #If the catalog is available but could not return version information,
+        #it is an old version that does not support that
+        if version is None:
+            self.get_workspaces()
+            # just to inform that version < 2.3.x
+            version = "2.2.x"
+        self._version = version
+        return version
 
     def delete(self, config_object, purge=False, recurse=False):
         """
